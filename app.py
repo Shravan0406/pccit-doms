@@ -35,8 +35,7 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 app.secret_key = os.getenv("FLASK_SECRET", "dev-secret-change-me")
 
 UPLOAD_DIR = "/tmp/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
+Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 # ---------------------- DB Helpers ----------------------
 _DB_READY = False
 def _ensure_db():
@@ -401,9 +400,7 @@ def upload():
     fname = f"{uuid.uuid4()}-{secure_filename(f.filename)}"
     path = os.path.join(UPLOAD_DIR, fname)
     f.save(path)
-
-    # If you want to serve it back from this instance (ephemeral):
-    return jsonify({"filename": fname, "url": f"/uploads/{fname}"}), 200
+    return {"ok": True}
 
 
 # Dedicated anchor for results login (notification will link here)
@@ -1029,5 +1026,5 @@ def results_auth():
 
 # ---------------------- Static uploads ----------------------
 @app.route("/uploads/<path:filename>")
-def uploads(filename):
+def get_upload(filename):
     return send_from_directory(UPLOAD_DIR, filename)
