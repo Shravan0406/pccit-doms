@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DoMS.gov.in</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-container">
+      <div class="logo-title">
+        <img src="{{ url_for('static', filename='emblem logo.jpeg') }}" alt="Govt Logo" class="logo" />
+        <div class="title-text">
+          <h1>Department of Ministerial Staff</h1>
+          <p class="subtext">Government of India</p>
+        </div>
+      </div>
+      <nav class="top-actions">
+        <a href="#staff" class="login-btn" onclick="showPage('staff'); return false;">Staff Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- FRONT (home) -->
+  <main id="homeSection">
+    <section class="hero">
+      <div class="overlay">
+        <h2>Serving the Nation with Dignity & Duty</h2>
+        <p>Upholding integrity, accountability, and public service excellence</p>
+      </div>
+    </section>
+
+    <section class="notification-section">
+      <h3>📢 Recent Notifications</h3>
+      <ul class="notification-list">
+        <!-- Dynamic items (includes Results release) -->
+        {% for n in notices %}
+        <li>
+          <strong>{{ n.created_at.strftime("%d %b %Y") if n.created_at else "" }}:</strong>
+          {% if n.url %}
+          <a href="{{ n.url }}" rel="noopener">{{ n.title }}</a>
+          {% elif n.file_path %}
+          <a href="{{ '/' + n.file_path }}" target="_blank" rel="noopener">{{ n.title }}</a>
+          {% else %}
+          <span>{{ n.title }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="about-section">
+      <h3>DoMS</h3>
+      <p>
+        The Department of Ministerial Staff is committed to supporting administrative operations
+        across ministries with professionalism, transparency, and ethical standards. Our department
+        facilitates recruitment, training, welfare, and performance assessments of non-gazetted ministerial staff.
+      </p>
+    </section>
+  </main>
+
+  <!-- NOTICE -->
+  <section id="notice" class="notice hidden" aria-hidden="true">
+    <p class="notice-message">If you already applied click on login button to download hallticket.</p>
+    <div class="notice-actions">
+      <button type="button" class="btn primary" onclick="applyNow()">Apply</button>
+      <button type="button" class="btn secondary" onclick="showLogin()">Login</button>
+    </div>
+  </section>
+
+  <!-- APPLY FORM (existing) -->
+  <section id="applySection" class="form-wrapper hidden" aria-hidden="true">
+    <form id="applyForm" method="POST" action="/submit" enctype="multipart/form-data">
+      <header class="form-header">
+        <div>
+          <h2>GOVERNMENT OF INDIA</h2>
+          <p>Office of the Pr. Chief Commissioner of Income Tax</p>
+          <p>9th Floor, ‘C’ Block, IT Towers, AC Guards, Hyderabad – 500034</p>
+          <p><strong>Phone:</strong> 040-23425462</p>
+        </div>
+        <div class="emblem">
+          <img src="{{ url_for('static', filename='emblem logo.jpeg') }}" class="logo" alt="Emblem">
+        </div>
+      </header>
+
+      <div class="form-grid">
+        <label>Name:</label>
+        <input type="text" name="name" placeholder="Name" required />
+
+        <label>Designation:</label>
+        <input type="text" name="designation" required>
+
+        <div class="form-grid two-col">
+          <!-- Recruitment Type -->
+          <label for="recruitmentType">Recruitment Type:</label>
+          <select id="recruitmentType" name="recruitmentType" required>
+            <option value="">-- Select --</option>
+            <option value="DR">DR</option>
+            <option value="PR">PR</option>
+            <option value="Compassionate">Compassionate</option>
+            <option value="Sports Quota">Sports Quota</option>
+            <option value="Others">Others</option>
+          </select>
+
+          <!-- Employee Code -->
+          <label for="empCode">Employee Code:</label>
+          <div class="field-col">
+            <input type="text" id="empCode" name="empCode" required />
+            {% if invalid_empcode_apply %}
+            <div class="field-error">Invalid employee code</div>
+            {% endif %}
+          </div>
+
+          <!-- Mobile Number -->
+          <label for="mobile">Mobile Number</label>
+          <input type="text" id="mobile" name="mobile" required />
+
+          <!-- Exam Purpose -->
+          <label for="exampurpose">Exam Purpose</label>
+          <input type="text" id="exampurpose" name="exampurpose" placeholder="promotion or confirmation" />
+
+          <!-- Date of Joining Present Post -->
+          <label for="doj">Date of Joining Present Post</label>
+          <input type="date" id="doj" name="doj" required />
+        </div>
+
+        <fieldset class="category-group span-2" id="categoryGroup">
+          <legend><strong>Category</strong> <span class="hint">(select up to 2)</span></legend>
+
+          <label class="cat-chip">
+            <input type="checkbox" name="category_opt" value="SC">
+            <span>SC</span>
+          </label>
+          <label class="cat-chip">
+            <input type="checkbox" name="category_opt" value="ST">
+            <span>ST</span>
+          </label>
+          <label class="cat-chip">
+            <input type="checkbox" name="category_opt" value="PWD">
+            <span>PWD</span>
+          </label>
+          <label class="cat-chip">
+            <input type="checkbox" name="category_opt" value="others">
+            <span>others</span>
+          </label>
+
+          <input type="hidden" name="category" id="categoryHidden">
+          <div id="categoryError" class="error" aria-live="polite"></div>
+        </fieldset>
+
+        <label for="citCharge">CIT’s Charge</label>
+        <input type="text" id="citCharge" name="citCharge" placeholder="Enter CIT’s charge" />
+
+        <label for="dob">Date of Birth</label>
+        <input type="date" id="dob" name="dob" />
+
+        <label for="eligibilityYear">Year of Eligibility Exam (if applicable)</label>
+        <input type="text" id="eligibilityYear" name="eligibilityYear" placeholder="e.g., 2023 or NA" />
+
+        <label for="roll1991">Roll No. in 1991/subsequent exam</label>
+        <input type="text" id="roll1991" name="roll1991" placeholder="Permanent Roll No., if any" />
+
+        <label for="postingPlace">Place of Posting</label>
+        <input type="text" id="postingPlace" name="postingPlace" placeholder="Current posting place" />
+      </div>
+
+      <h3>Details of Past Performance (Subject wise with marks)</h3>
+      <table class="responsive-table">
+        <thead>
+          <tr>
+            <th>Exam Details</th>
+            <th>Paper-I</th>
+            <th>Paper-II</th>
+            <th>Paper-III</th>
+            <th>Paper-IV</th>
+            <th>Paper-V</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Last Attempted</th>
+            <td><input type="text" name="paper1" placeholder="Year or NA" /></td>
+            <td><input type="text" name="paper2" placeholder="Year or NA" /></td>
+            <td><input type="text" name="paper3" placeholder="Year or NA" /></td>
+            <td><input type="text" name="paper4" placeholder="Year or NA" /></td>
+            <td><input type="text" name="paper5" placeholder="Year or NA" /></td>
+          </tr>
+          <tr>
+            <th>Previous Results</th>
+            <td><input type="text" name="paper1" placeholder="Marks or NA" /></td>
+            <td><input type="text" name="paper2" placeholder="Marks or NA" /></td>
+            <td><input type="text" name="paper3" placeholder="Marks or NA" /></td>
+            <td><input type="text" name="paper4" placeholder="Marks or NA" /></td>
+            <td><input type="text" name="paper5" placeholder="Marks or NA" /></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="form-grid">
+        <label>How many attempts completed?</label>
+        <input type="number" name="attempts" />
+        <fieldset class="section">
+          <legend>Subjects intended to appear</legend>
+          <div class="subjects-inline">
+            <label><input type="checkbox" name="subjects" value="paper1"> Paper-I</label>
+            <label><input type="checkbox" name="subjects" value="paper2"> Paper-II</label>
+            <label><input type="checkbox" name="subjects" value="paper3"> Paper-III</label>
+            <label><input type="checkbox" name="subjects" value="paper4"> Paper-IV</label>
+            <label><input type="checkbox" name="subjects" value="paper5"> Paper-V</label>
+          </div>
+        </fieldset><br>
+
+        <label>Language for answering "Accounts"</label>
+        <select name="language">
+          <option value="ENGLISH">ENGLISH</option>
+          <option value="HINDI">HINDI</option>
+        </select>
+
+        <label>Exam Centre (CIT Charge)</label>
+        <input type="text" name="examCenter" />
+
+        <label>Place:</label>
+        <input type="text" name="signPlace" />
+
+        <label>Date:</label>
+        <input type="date" name="signDate" />
+      </div>
+
+      <div class="upload-section">
+        <label>Signature of the Candidate:</label>
+        <div class="signature-wrapper">
+          <canvas id="signaturePad" width="300" height="100" style="border:1px solid #000;"></canvas><br>
+          <button type="button" class="btn small" onclick="clearSignature()">Clear</button>
+          <input type="file" id="signatureUpload" name="signatureUpload" accept="image/*" />
+          <input type="hidden" id="signatureData" name="signatureData" />
+        </div>
+
+        <label>Latest Photo of the Candidate:</label>
+        <input type="file" id="photoUpload" name="photoUpload" accept="image/*" />
+      </div>
+
+      <p class="note"><strong>NOTE:</strong> Candidates from other charges must enclose marks-list with this
+        application.</p>
+
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:20px;">
+        <button type="submit" class="btn primary">Submit</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- APPLICANT LOGIN (hallticket) -->
+  <div class="login-container hidden" id="loginSection" aria-hidden="true">
+    <form method="POST" action="/login">
+      <h2>Employee Login</h2>
+      <input type="text" id="empCode" name="empCode" placeholder="Employee Code" required />
+      {% if invalid_empcode_admit %}
+      <div class="field-error">Invalid employee code</div>
+      {% endif %}
+      <input type="text" id="mobile" name="mobile" placeholder="Mobile Number" required />
+      <button type="submit" class="btn primary">Login</button>
+      <p id="errorMsg" class="error">{{ error or '' }}</p>
+    </form>
+  </div>
+
+  <!-- STAFF LOGIN -->
+  <div class="login-container hidden" id="staffLoginSection" aria-hidden="true">
+    <form method="POST" action="/staff-auth">
+      <h2>Staff Login</h2>
+      <input type="email" name="staffEmail" placeholder="Email ID" required />
+      <input type="text" name="staffEmpCode" placeholder="Employee Code" required />
+      {% if invalid_empcode_staff %}
+      <div class="field-error">Invalid employee code</div>
+      {% endif %}
+      <input type="password" name="staffPassword" placeholder="Password" required />
+      <button type="submit" class="btn primary">Login</button>
+      <div class="action-row">
+        <a class="btn outline" href="/staff/signup" onclick="return true;">Create if you don't have account</a>
+      </div>
+      <p class="note">First successful login becomes the primary staff user; other users require approval.</p>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      {% for category, msg in messages %}
+      <p class="{{ 'error' if category=='error' else 'success' }}">{{ msg }}</p>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+    </form>
+  </div>
+
+  <!-- STAFF SIGNUP (NEW PAGE) -->
+  {% with msgs = get_flashed_messages(with_categories=True) %}
+  {% if msgs %}
+  <div class="flash-wrap">
+    {% for cat, msg in msgs %}
+    <div class="alert {{ 'success' if cat=='success' else 'error' }}">{{ msg }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+  <div class="login-container {% if show_staff_signup %}{% else %}hidden{% endif %}" id="staffSignupSection"
+    aria-hidden="{{ 'false' if show_staff_signup else 'true' }}">
+    <form method="POST" action="/staff/signup">
+      <h2>Create Employee Account</h2>
+
+      <label>Employee Name</label>
+      <input type="text" name="acc_name" required />
+
+      <label>Employee Code</label>
+      <input type="text" name="acc_emp" required />
+
+      <label>Designation</label>
+      <input type="text" name="acc_desig" required />
+
+      <label>Date of Birth</label>
+      <input type="date" name="acc_dob" required />
+
+      <label for="recruitmentType">Recruitment Type:</label>
+      <select id="recruitmentType" name="acc_rt" required>
+        <option value="">-- Select --</option>
+        <option value="DR">DR</option>
+        <option value="PR">PR</option>
+        <option value="Compassionate">Compassionate</option>
+        <option value="Sports Quota">Sports Quota</option>
+        <option value="Others">Others</option>
+      </select><br>
+
+      <label>Mobile Number</label>
+      <input type="text" name="acc_mb" required />
+
+      <label>Email ID</label>
+      <input type="email" name="acc_email" required />
+
+      <label>Password</label>
+      <input type="password" name="acc_pass" required />
+
+      <label>Confirm Password</label>
+      <input type="password" name="acc_pass2" required />
+
+      <button type="submit" class="btn primary">Create</button>
+    </form>
+  </div>
+
+  <!-- STAFF DASHBOARD -->
+  <section id="staffDashboard" class="form-wrapper hidden" aria-hidden="true">
+    <h3>Staff Dashboard</h3>
+
+    <form method="POST" action="/staff/notifications" enctype="multipart/form-data" class="card">
+      <h4>Publish Notification</h4>
+      <div class="form-grid">
+        <label>Title</label>
+        <input type="text" name="nt_title" placeholder="e.g., Application Form for XYZ" required />
+        <label>Link (optional)</label>
+        <input type="text" name="nt_link" placeholder="https://example.gov.in/file.pdf" />
+        <label>Upload PDF (optional)</label>
+        <input type="file" name="nt_file" accept="application/pdf" />
+      </div>
+      <div class="action-row">
+        <button class="btn primary" type="submit">Publish</button>
+      </div>
+    </form>
+
+    <div class="card">
+      <h4>Application Form</h4>
+      <form method="POST" action="/staff/release-application-form">
+        <button class="btn secondary" type="submit">Release Application Form</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h4>Results</h4>
+      <div class="action-row">
+        <a class="btn secondary" href="#" onclick="showPage('resultsuploader'); return false;">Upload Results</a>
+        <form method="POST" action="/staff/release-results" style="display:inline;">
+          <button class="btn outline" type="submit">Release Results</button>
+        </form>
+      </div>
+    </div>
+
+    <h4 style="margin-top:20px;">Recent Notifications</h4>
+    <form method="POST" action="/staff/unpublish" class="card">
+      <ul class="notification-list">
+        {% for n in notices %}
+        <li style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" name="ids" value="{{ n.id }}">
+          <div>
+            <strong>{{ n.created_at.strftime("%d %b %Y") if n.created_at else "" }}:</strong>
+            {% if n.url %}
+            <a href="{{ n.url }}" target="_blank" rel="noopener">{{ n.title }}</a>
+            {% elif n.file_path %}
+            <a href="{{ '/' + n.file_path }}" target="_blank" rel="noopener">{{ n.title }}</a>
+            {% else %}
+            <span>{{ n.title }}</span>
+            {% endif %}
+          </div>
+        </li>
+        {% else %}
+        <li><em>No notifications yet.</em></li>
+        {% endfor %}
+      </ul>
+      <div class="action-row">
+        <button class="btn outline" type="submit">Unpublish</button>
+        <a class="btn outline" href="/logout">Logout</a>
+      </div>
+    </form>
+  </section>
+
+  <!-- STAFF: RESULTS UPLOADER -->
+  <section id="resultsUploader" class="form-wrapper hidden" aria-hidden="true">
+    <h3>Upload Results</h3>
+    <form method="POST" action="/staff/results">
+      <div class="form-grid">
+        <label>Employee Name</label>
+        <input type="text" name="r_name" required />
+        <label>Employee Code</label>
+        <input type="text" name="r_emp" required />
+        <label>Designation</label>
+        <input type="text" name="r_desig" required />
+        <label>Date of Birth</label>
+        <input type="date" name="r_dob" required />
+        <label>Roll Number</label>
+        <input type="text" name="r_roll" required />
+        <label>Category</label>
+        <input type="text" name="r_cat" placeholder="SC/ST/OBC/UR/PwD etc." />
+        <label>Mobile Number</label>
+        <input type="text" name="r_mob" required />
+      </div>
+
+      <h4>Test Details</h4>
+      <table class="responsive-table">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>Marks</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in ['I','II','III','IV','V'] %}
+          <tr>
+            <td>Paper - {{ p }}</td>
+            <td><input type="text" name="p{{ loop.index }}_marks" placeholder="e.g., 72/100" /></td>
+            <td>
+              <select name="p{{ loop.index }}_result">
+                <option value="">--</option>
+                <option value="NA">Not Attempted</option>
+                <option value="Pass">Pass</option>
+                <option value="Fail">Fail</option>
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="action-row">
+        <button class="btn primary" type="submit">Upload</button>
+        <a class="btn outline" href="#" onclick="showPage('staffdash'); return false;">Back</a>
+      </div>
+    </form>
+
+    {% if results_rows is defined and results_rows %}
+    <h4 style="margin-top:18px;">Recently Uploaded</h4>
+    <ul class="notification-list">
+      {% for r in results_rows %}
+      <li><strong>{{ r.created_at.strftime("%d %b %Y") if r.created_at else '' }}:</strong> {{ r.name }} ({{ r.emp_code
+        }}) — {{ r.designation }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <!-- RESULTS LOGIN (public) -->
+  <div class="login-container hidden" id="resultsLoginSection" aria-hidden="true">
+    <form method="POST" action="/results-auth">
+      <h2>Results Login</h2>
+      <input type="text" name="res_emp" placeholder="Employee Code" required />
+      {% if invalid_empcode_results %}
+      <div class="field-error">Invalid employee code</div>
+      {% endif %}
+      <input type="text" name="res_mobile" placeholder="Mobile Number" required />
+      <button type="submit" class="btn primary">Login</button>
+      <p id="resErr" class="error">{{ error if error else '' }}</p>
+    </form>
+  </div>
+
+  <!-- RESULT CARD (public after successful login) -->
+  <div class="result-card hidden" id="resultsCardSection" aria-hidden="true">
+    {% if show_results_card and results_view %}
+    <div class="result-header">
+      <div class="head-left">
+        <img src="{{ url_for('static', filename='Dept_logo.png') }}" class="emb" />
+        <div class="lft-txt">
+          <h3>Income Tax Department</h3>
+          <p>Ministry of Finance, Government of India</p>
+        </div>
+      </div>
+      <div class="head-main">
+        <h2>RESULT</h2>
+        <p>Ministerial Staff Examination - <span id="year"></span></p>
+      </div>
+      <div class="head-right">
+        <img src="{{ url_for('static', filename='Dept_logo.png') }}" class="emb" />
+        <div class="right-txt">
+          <h3>Pr. Chief Commissioner of Income Tax</h3>
+          <p>Andhra Pradesh & Telangana State</p>
+        </div>
+      </div>
+    </div>
+
+    <table class="inf-tab">
+      <tr>
+        <td><strong>Name of Candidate:</strong></td>
+        <td>{{ results_view.name }}</td>
+        <td><strong>Employee Code:</strong></td>
+        <td>{{ results_view.empCode }}</td>
+      </tr>
+      <tr>
+        <td><strong>Designation:</strong></td>
+        <td>{{ results_view.designation }}</td>
+        <td><strong>Roll No:</strong></td>
+        <td>{{ results_view.rollNo }}</td>
+        <td><strong>Mobile Number:</strong></td>
+        <td>{{ results_view.mobile }}</td>
+      </tr>
+      <tr>
+        <td><strong>Category:</strong></td>
+        <td>{{ results_view.category }}</td>
+        <td><strong>PWD:</strong></td>
+        <td>{{ results_view.pwd }}</td>
+      </tr>
+    </table>
+
+    <table class="res-tab">
+      <tr>
+        <th colspan="3">Test Details</th>
+      </tr>
+      <tr>
+        <th>Subject</th>
+        <th>Marks</th>
+        <th>Result</th>
+      </tr>
+
+      <tr>
+        <td>Paper - I</td>
+        <td class="marks">{{ results_view.p1_marks or '-' }}</td>
+        <td class="result-cell">
+          {% if results_view.p1_result == 'Pass' %}<span class="badge badge-pass">Pass</span>
+          {% elif results_view.p1_result == 'Fail' %}<span class="badge badge-fail">Fail</span>
+          {% else %}<span class="muted">-</span>{% endif %}
+        </td>
+      </tr>
+
+      <tr>
+        <td>Paper - II</td>
+        <td class="marks">{{ results_view.p2_marks or '-' }}</td>
+        <td class="result-cell">
+          {% if results_view.p2_result == 'Pass' %}<span class="badge badge-pass">Pass</span>
+          {% elif results_view.p2_result == 'Fail' %}<span class="badge badge-fail">Fail</span>
+          {% else %}<span class="muted">-</span>{% endif %}
+        </td>
+      </tr>
+
+      <tr>
+        <td>Paper - III</td>
+        <td class="marks">{{ results_view.p3_marks or '-' }}</td>
+        <td class="result-cell">
+          {% if results_view.p3_result == 'Pass' %}<span class="badge badge-pass">Pass</span>
+          {% elif results_view.p3_result == 'Fail' %}<span class="badge badge-fail">Fail</span>
+          {% else %}<span class="muted">-</span>{% endif %}
+        </td>
+      </tr>
+
+      <tr>
+        <td>Paper - IV</td>
+        <td class="marks">{{ results_view.p4_marks or '-' }}</td>
+        <td class="result-cell">
+          {% if results_view.p4_result == 'Pass' %}<span class="badge badge-pass">Pass</span>
+          {% elif results_view.p4_result == 'Fail' %}<span class="badge badge-fail">Fail</span>
+          {% else %}<span class="muted">-</span>{% endif %}
+        </td>
+      </tr>
+
+      <tr>
+        <td>Paper - V</td>
+        <td class="marks">{{ results_view.p5_marks or '-' }}</td>
+        <td class="result-cell">
+          {% if results_view.p5_result == 'Pass' %}<span class="badge badge-pass">Pass</span>
+          {% elif results_view.p5_result == 'Fail' %}<span class="badge badge-fail">Fail</span>
+          {% else %}<span class="muted">-</span>{% endif %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="date-cell"><strong>Date: {{ results_view.examDate }}</strong></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </table>
+    {% endif %}
+  </div>
+
+
+  <!-- ADMIT CARD (existing behavior) -->
+  <div class="admit-card" id="admitCardSection" style="display:none;">
+    <!-- HEADER -->
+    <div class="admit-header">
+      <div class="hdr-left">
+        <img src="{{ url_for('static', filename='Dept_logo.png') }}" class="dept-logo" />
+        <div class="dept-text">
+          <h3>Income Tax Department</h3>
+          <p>Ministry of Finance, Government of India</p>
+        </div>
+      </div>
+
+      <div class="hdr-center">
+        <h2>ADMIT CARD</h2>
+        <p>For Ministerial Staff Examination - 2025</p>
+      </div>
+
+      <div class="hdr-right">
+        <img src="{{ url_for('static', filename='Dept_logo.png') }}" class="dept-logo" />
+        <div class="dept-text-right">
+          <h3>Pr. Chief Commissioner of Income Tax</h3>
+          <p>Andhra Pradesh &amp; Telangana State</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP INFO TABLE (LIKE THE 3RD IMAGE) -->
+    <table class="info-table">
+      <colgroup>
+        <col style="width:26%">
+        <col style="width:30%">
+        <col style="width:12%">
+        <col style="width:12%">
+        <col style="width:20%">
+      </colgroup>
+
+      <tr>
+        <td class="lab"><strong>Name of the Examination:</strong></td>
+        <td class="val"><strong>Ministerial Staff</strong></td>
+        <td class="lab"><strong>Roll No</strong></td>
+        <td class="val center strong">{{ data.rollNo }}</td>
+        <!-- Photograph column spans down (like sample) -->
+        <td class="photo-cell" rowspan="7">
+          <div class="photo-head"><strong>Photograph</strong></div>
+          <div class="photo-box">
+            <img src="{{ data.photo_data_uri or ('data:image/png;base64,' ~ (data.photo or '')) }}" alt="photo">
+          </div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="lab"><strong>Name of Candidate</strong>:</td>
+        <td class="val">{{ data.name }}</td>
+        <td class="lab"><strong> </strong></td>
+        <td class="val"></td>
+      </tr>
+
+      <tr>
+        <td class="lab"><strong>Designation</strong>:</td>
+        <td class="val">{{ data.designation }}</td>
+        <td class="lab"><strong>Mobile Number</strong></td>
+        <td class="val">{{ data.mobile }}</td>
+      </tr>
+
+      <tr>
+        <td class="lab"><strong>Office in which working</strong></td>
+        <td class="val">{{ data.office }}</td>
+        <td class="lab"><strong>Date of Birth</strong>:</td>
+        <td class="val">{{ data.dob }}</td>
+      </tr>
+
+      <tr>
+        <td class="lab"><strong>Employee Code</strong>:</td>
+        <td class="val">{{ data.empCode }}</td>
+        <td class="lab"><strong>Person with Disability (PwD)</strong>:</td>
+        <td class="val">{{ data.pwd }}</td>
+      </tr>
+
+      <tr>
+        <td class="lab"><strong>Scribe</strong>:</td>
+        <td class="val">{{ data.scribe }}</td>
+        <td class="lab"></td>
+        <td class="val"></td>
+      </tr>
+
+      <!-- QR + Signature row (single band across middle, like the sample) -->
+      <tr class="sig-row">
+        <td class="qr-cell">
+          <div class="qr-box">
+            {% if data.qrCode %}
+            <img class="qr" src="{{ data.qrCode }}" alt="QR Code" />
+            {% endif %}
+          </div>
+        </td>
+        <td class="sig-label center"><strong>Candidate's Signature</strong></td>
+        <td class="sig-img" colspan="2">
+          <div class="signature-box">
+            <img src="{{ data.signature_data_uri or ('data:image/png;base64,' ~ (data.signature or '')) }}"
+              alt="signature">
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- TEST DETAILS (GREY BAND) -->
+    <table class="test-table">
+      <colgroup>
+        <col style="width:60%">
+        <col style="width:40%">
+      </colgroup>
+
+      <tr>
+        <th colspan="2">Test Details</th>
+      </tr>
+      <tr>
+        <td>Paper - I</td>
+        <td class="center">{{ data.paper1 }}</td>
+      </tr>
+      <tr>
+        <td>Paper - II</td>
+        <td class="center">{{ data.paper2 }}</td>
+      </tr>
+      <tr>
+        <td>Paper - III</td>
+        <td class="center">{{ data.paper3 }}</td>
+      </tr>
+      <tr>
+        <td>Paper - IV</td>
+        <td class="center">{{ data.paper4 }}</td>
+      </tr>
+      <tr>
+        <td>Paper - V</td>
+        <td class="center">{{ data.paper5 }}</td>
+      </tr>
+      <tr>
+        <td><strong>Examination Centre</strong></td>
+        <td class="center strong">{{ data.center }}</td>
+      </tr>
+      <tr>
+        <td>Roll No. allotted in 1991 or subsequent Examination (Candidate should mention Permanent Roll No.)</td>
+        <td class="center">-</td>
+      </tr>
+      <tr>
+        <td><strong>Date: {{ data.examDate }}</strong></td>
+        <td></td>
+      </tr>
+    </table>
+
+    <button class="print-btn" onclick="window.print()">Print</button>
+  </div>
+
+  <footer>
+    <p>&copy; <span id="year"></span> Department of Ministerial Staff | Government of India</p>
+  </footer>
+
+  <!-- Basics -->
+  <script>
+    function goBack() { window.history.back(); }
+    function goForward() { window.history.forward(); }
+  </script>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+
+  <!-- Category UX & Signature capture (unchanged logic, small fix: signatureData id) -->
+  <script>
+    (function () {
+      const group = document.getElementById('categoryGroup');
+      if (!group) return;
+
+      const boxes = Array.from(group.querySelectorAll('input[name="category_opt"]'));
+      const hidden = document.getElementById('categoryHidden');
+      const errorEl = document.getElementById('categoryError');
+      const form = document.getElementById('applyForm');
+
+      function selectedValues() {
+        return boxes.filter(b => b.checked).map(b => b.value);
+      }
+      function syncHidden() { hidden.value = selectedValues().join(','); }
+      function showError(msg) { errorEl.textContent = msg || ''; }
+
+      boxes.forEach(b => {
+        b.addEventListener('change', (e) => {
+          const count = selectedValues().length;
+          if (count > 2) {
+            e.target.checked = false;
+            showError('You can select at most two categories.');
+            return;
+          }
+          showError('');
+          syncHidden();
+        });
+      });
+
+      form.addEventListener('submit', (e) => {
+        const vals = selectedValues();
+        if (vals.length === 0) { e.preventDefault(); showError('Please select at least one category.'); return; }
+        if (vals.length > 2) { e.preventDefault(); showError('You can select at most two categories.'); return; }
+        showError(''); syncHidden();
+      });
+      syncHidden();
+    })();
+
+    // Signature pad
+    const canvas = document.getElementById('signaturePad');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      let isDrawing = false;
+      canvas.addEventListener('mousedown', e => { isDrawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); });
+      canvas.addEventListener('mousemove', e => { if (!isDrawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); });
+      canvas.addEventListener('mouseup', () => isDrawing = false);
+      canvas.addEventListener('mouseleave', () => isDrawing = false);
+      window.clearSignature = function () { ctx.clearRect(0, 0, canvas.width, canvas.height); };
+
+      const form = document.getElementById('applyForm');
+      form.addEventListener('submit', () => {
+        const chosen = document.getElementById('signatureUpload')?.files?.length > 0;
+        if (!chosen) document.getElementById('signatureData').value = canvas.toDataURL('image/png');
+      });
+    }
+  </script>
+
+  <!-- Single-page Router -->
+  <script>
+    const PAGES = {
+      home: 'homeSection',
+      notice: 'notice',
+      apply: 'applySection',
+      login: 'loginSection',
+      staff: 'staffLoginSection',
+      staffsignup: 'staffSignupSection',
+      staffdash: 'staffDashboard',
+      resultsuploader: 'resultsUploader',
+      resultslogin: 'resultsLoginSection',
+      resultscard: 'resultsCardSection',
+      admit: 'admitCardSection'
+    };
+
+    function hideAll() {
+      Object.values(PAGES).forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === 'admitCardSection') el.style.display = 'none';
+        else el.classList.add('hidden');
+        el.setAttribute('aria-hidden', 'true');
+      });
+    }
+    function reveal(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (id === 'admitCardSection') el.style.display = 'block';
+      else el.classList.remove('hidden');
+      el.setAttribute('aria-hidden', 'false');
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function showPage(page, push = true) {
+      const id = PAGES[page] || PAGES.home;
+      hideAll(); reveal(id);
+      if (push) {
+        const title = page.charAt(0).toUpperCase() + page.slice(1);
+        history.pushState({ page }, title, '#' + page);
+      }
+    }
+    window.addEventListener('popstate', (event) => {
+      const page = event.state?.page || (location.hash ? location.hash.substring(1) : 'home');
+      showPage(page, false);
+    });
+
+    (function initRouter() {
+      const showDash = "{{ 'true' if show_staff_dashboard is defined and show_staff_dashboard else 'false' }}";
+      const showResUpload = "{{ 'true' if show_results_uploader is defined and show_results_uploader else 'false' }}";
+      const showResLogin = "{{ 'true' if show_results_login is defined and show_results_login else 'false' }}";
+      const showResCard = "{{ 'true' if show_results_card is defined and show_results_card else 'false' }}";
+      const showSignup = "{{ 'true' if show_staff_signup is defined and show_staff_signup else 'false' }}";
+
+      let initial = 'home';
+      if (showDash === "true") initial = 'staffdash';
+      else if (showSignup === "true") initial = 'staffsignup';
+      else if (showResUpload === "true") initial = 'resultsuploader';
+      else if (showResLogin === "true") initial = 'resultslogin';
+      else if (showResCard === "true") initial = 'resultscard';
+      history.replaceState({ page: initial }, document.title, location.href);
+      showPage(initial, false);
+    })();
+
+    // Expose helpers
+    window.showPage = showPage;
+    window.applyNow = () => showPage('apply');
+    window.showLogin = () => showPage('login');
+  </script>
+
+  <script>
+    (function showAdmitIfData() {
+      const hasData = "{{ 'true' if data is defined and data else 'false' }}";
+      const hasError = "{{ 'true' if error is defined and error else 'false' }}";
+      const errText = "{{ error | default('') | e }}";
+
+      if (hasData === "true") {
+        hideAll();
+        // Show the admit card section
+        const admitId = 'admitCardSection';
+        const el = document.getElementById(admitId);
+        if (el) {
+          el.style.display = 'block';
+          el.setAttribute('aria-hidden', 'false');
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        // keep SPA state consistent
+        history.replaceState({ page: 'admit' }, 'Admit', '#admit');
+      } else if (hasError === "true") {
+        // show applicant login with error message
+        showPage('login', false);
+        const e = document.getElementById('errorMsg');
+        if (e) e.textContent = errText;
+      }
+    })();
+  </script>
+  <!-- Signature & category code, admit card toggles etc. remain same (omitted for brevity) -->
+</body>
+
+</html>
