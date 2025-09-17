@@ -30,7 +30,7 @@ SMTP_PASS = os.getenv("SMTP_PASS")
 SMTP_SENDER = os.getenv("SMTP_SENDER", SMTP_USER or "no-reply@example.com")
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:5000")
 
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join("static", "uploads"))
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join("tmp", "uploads"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = Flask(__name__)
