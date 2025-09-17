@@ -378,6 +378,11 @@
         <form method="POST" action="/staff/release-results" style="display:inline;">
           <button class="btn outline" type="submit">Release Results</button>
         </form>
+        <h3>Upload Notification File</h3>
+        <form action="/upload" method="POST" enctype="multipart/form-data">
+          <input type="file" name="file" />
+          <button type="submit">Upload</button>
+        </form>
       </div>
     </div>
 
