@@ -30,8 +30,13 @@ SMTP_PASS = os.getenv("SMTP_PASS")
 SMTP_SENDER = os.getenv("SMTP_SENDER", SMTP_USER or "no-reply@example.com")
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:5000")
 
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join("tmp", "uploads"))
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+file = request.files["file"]
+fname = f"{uuid.uuid4()}-{secure_filename(file.filename)}"
+fpath = os.path.join(UPLOAD_DIR, fname)
+file.save(fpath)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
