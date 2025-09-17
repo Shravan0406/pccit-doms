@@ -193,7 +193,7 @@ def init_db():
     root_conn, dbname = _root_conn_and_dbname()
     rcur = root_conn.cursor()
     rcur.execute(
-        f"CREATE DATABASE IF NOT EXISTS `{dbname}` "
+        f"CREATE DATABASE IF NOT EXISTS `{"database"}` "
         "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
     )
     rcur.close(); root_conn.close()
