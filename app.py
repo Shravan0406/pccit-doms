@@ -23,7 +23,7 @@ DB_CONFIG = {
     "user": os.getenv("MYSQL_USER", "35y1kD58qEZM9KR.root"),
     "password": os.getenv("MYSQL_PASSWORD", "hzn8xpELksFIHUF2"),
     "database": os.getenv("MYSQL_DATABASE", "employeeportal"),
-    "ssl_ca": os.environ.get("MYSQL_SSL_CA"),
+    "ssl_ca": os.environ.get("MYSQL_SSL_CA", "isrgrootx1.pem"),
 }
 
 SMTP_HOST = os.getenv("SMTP_HOST")
