@@ -16,7 +16,7 @@ except ImportError:
 
 # ---------------------- Config ----------------------
 DB_CONFIG = {
-    "host": os.getenv("MYSQL_HOST", "127.0.0.1"),
+    "host": os.getenv("MYSQL_HOST", "remote host"),
     "port": int(os.getenv("MYSQL_PORT", 3306)),
     "user": os.getenv("MYSQL_USER", "root"),
     "password": os.getenv("MYSQL_PASSWORD", "Bandi$0406"),
@@ -38,6 +38,12 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 app.secret_key = os.getenv("FLASK_SECRET", "dev-secret-change-me")
 
 # ---------------------- DB Helpers ----------------------
+_DB_READY = False
+def _ensure_db():
+    global _DB_READY
+    if not _DB_READY:
+        init_db()
+        _DB_READY = True
 def _root_conn_and_dbname():
     cfg = DB_CONFIG.copy()
     dbname = cfg.pop("database", None)
@@ -1008,8 +1014,3 @@ def results_auth():
 @app.route("/uploads/<path:filename>")
 def uploads(filename):
     return send_from_directory(UPLOAD_DIR, filename)
-
-# ---------------------- Main ----------------------
-if __name__ == "__main__":
-    init_db()
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
