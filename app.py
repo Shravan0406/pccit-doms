@@ -25,8 +25,6 @@ DB_CONFIG = {
     "database": os.getenv("MYSQL_DATABASE", "employeeportal"),
     "ssl_ca": os.environ.get("MYSQL_SSL_CA"),
 }
-def get_conn():
-    return mysql.connect(**DB_CONFIG)
 
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -193,7 +191,7 @@ def init_db():
     root_conn, dbname = _root_conn_and_dbname()
     rcur = root_conn.cursor()
     rcur.execute(
-        f"CREATE DATABASE IF NOT EXISTS `{"dbname"}` "
+        f"CREATE DATABASE IF NOT EXISTS `{dbname}` "
         "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
     )
     rcur.close(); root_conn.close()
@@ -372,14 +370,11 @@ def init_db():
 
     conn.commit()
     cur.close(); conn.close()
-    _DB_READY = False
-    def _ensure_db():
-        global _DB_READY
-        if not _DB_READY:
-            init_db()
-            _DB_READY = True
-    _ensure_db()
-
+    try:
+        init_db()
+    except Exception as e:
+        print("init_db failed (will try again on next call):", e)
+       
 # ---------------------- Routes: Public ----------------------
 @app.route("/")
 def home():
@@ -753,7 +748,7 @@ def staff_auth():
 
     token = uuid.uuid4().hex
     cur.execute("""
-        INSERT INTO staff_login_requests (requester_email, requester_emp_code, password_hash, token, status)
+        INSERT INTO staff_login_requests (requester_email, emp_code, password_hash, token, status)
         VALUES (%s,%s,%s,%s,'pending')
     """, (email, emp_code, generate_password_hash(password), token))
     conn.commit(); cur.close(); conn.close()
