@@ -30,17 +30,12 @@ SMTP_PASS = os.getenv("SMTP_PASS")
 SMTP_SENDER = os.getenv("SMTP_SENDER", SMTP_USER or "no-reply@example.com")
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:5000")
 
-UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-file = request.files["file"]
-fname = f"{uuid.uuid4()}-{secure_filename(file.filename)}"
-fpath = os.path.join(UPLOAD_DIR, fname)
-file.save(fpath)
-
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 app.secret_key = os.getenv("FLASK_SECRET", "dev-secret-change-me")
+
+UPLOAD_DIR = "/tmp/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ---------------------- DB Helpers ----------------------
 _DB_READY = False
@@ -393,6 +388,23 @@ def home():
     notices = cur.fetchall()
     cur.close(); conn.close()
     return render_template("index.html", data={}, error=None, notices=notices)
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    f = request.files["file"]
+    if f.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
+    fname = f"{uuid.uuid4()}-{secure_filename(f.filename)}"
+    path = os.path.join(UPLOAD_DIR, fname)
+    f.save(path)
+
+    # If you want to serve it back from this instance (ephemeral):
+    return jsonify({"filename": fname, "url": f"/uploads/{fname}"}), 200
+
 
 # Dedicated anchor for results login (notification will link here)
 @app.route("/results")
