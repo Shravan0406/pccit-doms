@@ -18,12 +18,15 @@ except ImportError:
 
 # ---------------------- Config ----------------------
 DB_CONFIG = {
-    "host": os.getenv("MYSQL_HOST", "remote host"),
-    "port": int(os.getenv("MYSQL_PORT", 3306)),
-    "user": os.getenv("MYSQL_USER", "root"),
-    "password": os.getenv("MYSQL_PASSWORD", "Bandi$0406"),
+    "host": os.getenv("MYSQL_HOST", "gateway01.us-east-1.prod.aws.tidbcloud.com"),
+    "port": int(os.getenv("MYSQL_PORT", 4000)),
+    "user": os.getenv("MYSQL_USER", "35y1kD58qEZM9KR.root"),
+    "password": os.getenv("MYSQL_PASSWORD", "hzn8xpELksFIHUF2"),
     "database": os.getenv("MYSQL_DATABASE", "employeeportal"),
+    "ssl_ca": os.environ.get("MYSQL_SSL_CA"),
 }
+def get_conn():
+    return mysql.connect(**DB_CONFIG)
 
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -246,11 +249,7 @@ def init_db():
             FOREIGN KEY (emp_code) REFERENCES employee_accounts(emp_code) ON DELETE CASCADE
         )
     """)
-
-    def column_exists(cur, table, column):
-        cur.execute(f"SHOW COLUMNS FROM {table} LIKE %s", (column,))
-        return cur.fetchone() is not None
-
+    
     # After creating 'applicants' table...
     # Add the column
     if not column_exists(cur, "applicants", "qr_blob"):
