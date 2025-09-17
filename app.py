@@ -378,6 +378,7 @@ def init_db():
 # ---------------------- Routes: Public ----------------------
 @app.route("/")
 def home():
+    _ensure_db()
     conn = get_conn(); cur = conn.cursor(dictionary=True)
     cur.execute("SELECT id, title, url, file_path, created_at FROM notifications WHERE is_published=1 ORDER BY created_at DESC LIMIT 25")
     notices = cur.fetchall()
