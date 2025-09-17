@@ -785,7 +785,7 @@ def staff_request_action(token):
             cur.execute("""
                 INSERT INTO staff_users (email, emp_code, password_hash, is_primary)
                 VALUES (%s,%s,%s,0)
-            """, (req["requester_email"], req["requester_emp_code"], req["password_hash"]))
+            """, (req["requester_email"], req["emp_code"], req["password_hash"]))
         cur.execute("UPDATE staff_login_requests SET status='approved' WHERE id=%s", (req["id"],))
         conn.commit()
         cur.close(); conn.close()
