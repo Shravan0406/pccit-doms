@@ -244,24 +244,19 @@ def init_db():
             signature_mime VARCHAR(50),
             photo_blob LONGBLOB,
             photo_mime VARCHAR(50),
+            qr_blob LONGBLOB,
+            qr_mime VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (emp_code) REFERENCES employee_accounts(emp_code) ON DELETE CASCADE
+            FOREIGN KEY (emp_code) REFERENCES employee_accounts(emp_code) ON DELETE CASCADE,
+            UNIQUE KEY uniq_app_qr (qr_mime)
         )
     """)
-    
-    # After creating 'applicants' table...
-    # Add the column
+
     if not column_exists(cur, "applicants", "qr_blob"):
         cur.execute("ALTER TABLE applicants ADD COLUMN qr_blob LONGBLOB AFTER photo_mime")
     if not column_exists(cur, "applicants", "qr_mime"):
         cur.execute("ALTER TABLE applicants ADD COLUMN qr_mime VARCHAR(50) AFTER qr_blob")
-
-# (Optional) make it unique – only if you really need each qr_mime unique
-    if not index_exists(cur, "applicants", "uniq_app_qr"):
-        cur.execute("ALTER TABLE applicants ADD UNIQUE KEY uniq_app_qr (qr_mime)")
-
-
 
     # Exam performance
     cur.execute("""
@@ -372,10 +367,6 @@ def init_db():
 
     conn.commit()
     cur.close(); conn.close()
-    try:
-        init_db()
-    except Exception as e:
-        print("init_db failed (will try again on next call):", e)
        
 # ---------------------- Routes: Public ----------------------
 @app.route("/")
