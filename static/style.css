@@ -16,8 +16,8 @@ header { background: #3d5686; box-shadow: var(--shadow); padding: 16px 20px; pos
 .header-container { display: flex; justify-content: space-between; align-items: center; }
 .logo-title { display: flex; align-items: center; gap: 12px; }
 .logo { width: 56px; height: 56px; object-fit: cover; border-radius: 10%; }
-.title-text h1 { margin: 0; font-size: 1.4rem; font-color:#fff; }
-.subtext { margin: 0 0 0 70px; font-size: 0.95rem; font-color: #fff; }
+.title-text h1 { margin: 0; font-size: 1.4rem; color:#fff; }
+.subtext { margin: 0 0 0 70px; font-size: 0.95rem; color: #fff; }
 
 .top-actions a { margin-left: 10px; color: white; text-decoration: none; padding: 8px 16px; font-weight: bold; transition: color 0.3s;}
 .top-actions a { color: #4da6ff; }
