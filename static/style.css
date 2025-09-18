@@ -12,10 +12,10 @@ html, body { margin: 0; padding: 0; font-family: system-ui, -apple-system, Segoe
 body { min-height: 100dvh; display: flex; flex-direction: column; }
 .hidden { display: none !important; }
 
-header { background: var(--blue); box-shadow: var(--shadow); padding: 16px 20px; position: sticky; top: 0; z-index: 10; }
+header { background: #3d5686; box-shadow: var(--shadow); padding: 16px 20px; position: sticky; top: 0; z-index: 10; }
 .header-container { display: flex; justify-content: space-between; align-items: center; }
 .logo-title { display: flex; align-items: center; gap: 12px; }
-.logo { width: 56px; height: 56px; object-fit: cover; border-radius: 20%; }
+.logo { width: 56px; height: 56px; object-fit: cover; border-radius: 10%; }
 .title-text h1 { margin: 0; font-size: 1.4rem; }
 .subtext { margin: 0 0 0 70px; color: var(--muted); font-size: 0.95rem; }
 
