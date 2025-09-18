@@ -19,8 +19,8 @@ header { background: #3d5686; box-shadow: var(--shadow); padding: 16px 20px; pos
 .title-text h1 { margin: 0; font-size: 1.4rem; color:#fff; }
 .subtext { margin: 0 0 0 70px; font-size: 0.95rem; color: #fff; }
 
-.top-actions .login-btn { margin-left: 10px; color: white; text-decoration: none; font-weight: bold; transition: color 0.3s;}
-.top-actions .login-btn:hover { color: #4da6ff; }
+.login-btn { margin-left: 10px; color: white; text-decoration: none; font-weight: bold; transition: color 0.3s;}
+.login-btn:hover { color: #4da6ff; }
 
 .login-btn { background: #0056b3; color: white; text-decoration: none; padding: 0.5rem 1.2rem; border-radius: 5px; font-weight: 600; transition: background 0.2s ease-in-out; }
 .login-btn:hover { background: #004494; }
