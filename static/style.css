@@ -345,5 +345,5 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
 }
 
 
-footer { background: var(--white); box-shadow: var(--shadow); padding: 12px 16px; margin-top: auto; z-index: 9; }
-footer p { margin: 0; color: var(--muted); text-align: center; font-size: 0.95rem; }
+footer { background: #3d5686; box-shadow: var(--shadow); padding: 12px 16px; margin-top: auto; z-index: 9; }
+footer p { margin: 0; color: var(--white); text-align: center; font-size: 0.95rem; }
