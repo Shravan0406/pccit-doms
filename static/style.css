@@ -25,7 +25,7 @@ header { background: #3d5686; box-shadow: var(--shadow); padding: 16px 20px; pos
 .login-btn { background: #0056b3; color: white; text-decoration: none; padding: 0.5rem 1.2rem; border-radius: 5px; font-weight: 600; transition: background 0.2s ease-in-out; }
 .login-btn:hover { background: #004494; }
 
-.hero { position: relative; background: url('hero.jpg') center/cover no-repeat, linear-gradient(120deg, #eaf0ff, #ffffff); min-height: 220px; display: grid; place-items: center; }
+.hero { position: relative; background: #3d5686, linear-gradient(120deg, #eaf0ff, #ffffff); min-height: 220px; display: grid; place-items: center; }
 .hero .overlay { background: rgba(255,255,255,0.85); padding: 24px 28px; border-radius: var(--radius); box-shadow: var(--shadow); text-align: center; }
 .hero h2 { margin: 0 0 8px; }
 .hero p { margin: 0; color: var(--muted); }
