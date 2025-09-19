@@ -28,12 +28,12 @@ DB_CONFIG = {
     "ssl_ca": os.environ.get("SSL_CA_PATH"),
 }
 
-SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASS = os.getenv("SMTP_PASS")
-SMTP_SENDER = os.getenv("SMTP_SENDER", SMTP_USER or "no-reply@example.com")
-SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:5000")
+SMTP_USER = os.getenv("SMTP_USER", "975e36001@smtp-brevo.com")
+SMTP_PASS = os.getenv("SMTP_PASS", "JFp1Yq2jUASVOw5g")
+SMTP_SENDER = os.getenv("SMTP_SENDER", SMTP_USER or "ssbandi04@gmail.com")
+SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://pccit-doms.vercel.app/#staff")
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
