@@ -526,6 +526,16 @@ def submit():
     if not all([name, designation, recruitment_type, emp_code, mobile, doj]) or not category_csv:
         return render_template("index.html", data={}, error="Missing required fields in application form."), 400
 
+    conn = get_conn(); cur = conn.cursor(dictionary=True)
+    cur.execute(
+        "SELECT 1 FROM employee_accounts WHERE emp_code=%s AND mobile=%s LIMIT 1",
+        (emp_code, mobile)
+    )
+    pair_ok = cur.fetchone() is not None
+    cur.close(); conn.close()
+    if not pair_ok:
+        return render_template("index.html", data={}, invalid_mobile_apply=True, preserve_apply=True)
+
     conn = get_conn(); cur = conn.cursor()
     cur.execute("""
         INSERT INTO applicants (
@@ -636,22 +646,39 @@ def submit():
 # ---------------------- Existing Applicant Login (Admit Card) ----------------------
 @app.route("/login", methods=["POST"])
 def login():
-    emp_code = request.form.get("empCode")
-    mobile = request.form.get("mobile")
-    if not emp_code or not mobile:
-        return render_template("index.html", data={}, error="Missing Employee Code or Mobile"), 400
+    emp_code = (request.form.get("empCode") or "").strip()
+    email    = (request.form.get("email") or "").strip().lower()
+    password = request.form.get("password") or ""
+
+    if not (emp_code and email and password):
+        return render_template("index.html", data={}, error="Please provide Employee Code, Email and Password"), 400
 
     conn = get_conn(); cur = conn.cursor(dictionary=True)
-    cur.execute("SELECT * FROM applicants WHERE emp_code=%s AND mobile=%s", (emp_code, mobile))
+
+    # 1) Validate credentials against employee_accounts
+    cur.execute(
+        "SELECT * FROM employee_accounts WHERE emp_code=%s AND email=%s LIMIT 1",
+        (emp_code, email)
+    )
+    acct = cur.fetchone()
+    if not acct or not check_password_hash(acct["password_hash"], password):
+        cur.close(); conn.close()
+        # keep the same error plumbing your template expects
+        return render_template("index.html", data={}, error="Invalid credentials.", invalid_empcode_admit=(acct is None)), 401
+
+    # 2) Fetch the most recent applicant record for this employee
+    cur.execute(
+        "SELECT * FROM applicants WHERE emp_code=%s ORDER BY updated_at DESC, created_at DESC LIMIT 1",
+        (emp_code,)
+    )
     row = cur.fetchone()
-    # Ensure QR exists; if old rows don't have it, generate & save on-the-fly
     if not row:
         cur.close(); conn.close()
-        return render_template("index.html", data={}, error="No record found for provided credentials")
-    
+        return render_template("index.html", data={}, error="No application found. Please submit the application first."), 404
+
+    # 3) Ensure a QR exists (generate & persist if missing)
     qr_blob = row.get("qr_blob")
     qr_mime = row.get("qr_mime") or "image/png"
-
     if not qr_blob:
         qr_payload = (
             f"AdmitCard|EmpCode:{row.get('emp_code')}|Name:{row.get('name')}|"
@@ -659,24 +686,13 @@ def login():
             f"Mobile:{row.get('mobile')}|Roll:{(row.get('roll_1991') or row.get('emp_code'))}"
         )
         qr_mime, qr_blob = generate_qr_bytes(qr_payload)
-        cur2 = conn.cursor()
-        cur2.execute(
-            "UPDATE applicants SET qr_blob=%s, qr_mime=%s WHERE id=%s",
-            (qr_blob, qr_mime, row["id"])
-        )
+        cur.execute("UPDATE applicants SET qr_blob=%s, qr_mime=%s WHERE id=%s", (qr_blob, qr_mime, row["id"]))
         conn.commit()
-        cur2.close()
 
-    cur.execute("SELECT * FROM exam_performance WHERE applicant_id=%s LIMIT 1", (row["id"],))
-    _ = cur.fetchone() or {}
-    cur.close(); conn.close()   
-
+    # 4) Shape admit-card payload (same keys your template already uses)
     chosen = {s.strip().lower() for s in (row.get("subjects") or "").split(",") if s.strip()}
-
-    photo_b64 = b64(row.get("photo_blob"))
-    sig_b64 = b64(row.get("signature_blob"))
-    photo_mime = row.get("photo_mime") or "image/png"
-    sig_mime = row.get("signature_mime") or "image/png"
+    photo_b64 = b64(row.get("photo_blob"));  sig_b64 = b64(row.get("signature_blob"))
+    photo_mime = row.get("photo_mime") or "image/png"; sig_mime = row.get("signature_mime") or "image/png"
 
     data = {
         "rollNo": row.get("emp_code"),
@@ -699,9 +715,12 @@ def login():
         "signature_data_uri": f"data:{sig_mime};base64,{sig_b64}" if sig_b64 else "",
         "photo": photo_b64,
         "signature": sig_b64,
-        "qrCode": "",
+        "qrCode": f"data:{qr_mime};base64,{b64(qr_blob)}" if qr_blob else "",
     }
+
+    cur.close(); conn.close()
     return render_template("index.html", data=data, error=None)
+
 
 # ---------------------- Staff Login & Approval (unchanged) ----------------------
 @app.route("/staff-auth", methods=["POST"])
@@ -972,14 +991,28 @@ def staff_release_results():
 @app.route("/results-auth", methods=["POST"])
 def results_auth():
     emp = (request.form.get("res_emp") or "").strip()
-    mobile = (request.form.get("res_mobile") or "").strip()
+    email = (request.form.get("res_email") or "").strip()
+    password = (request.form.get("res_email") or "").strip()
 
     if not emp or not empcode_exists(emp):
         return render_template("index.html", data={}, invalid_empcode_results=True, show_results_login=True)
 
-    if not all([ emp, mobile]):
-        err = "Please provide Employee Code and Mobile."
+    if not all([ emp, email, password]):
+        err = "Please provide Employee Code, E-mail, and Password."
         return render_template("index.html", data={}, error=err, show_results_login=True)
+
+    conn = get_conn(); cur = conn.cursor(dictionary=True)
+
+    # 1) Validate credentials against employee_accounts
+    cur.execute(
+        "SELECT * FROM employee_accounts WHERE emp_code=%s AND email=%s LIMIT 1",
+        (emp_code, email)
+    )
+    acct = cur.fetchone()
+    if not acct or not check_password_hash(acct["password_hash"], password):
+        cur.close(); conn.close()
+        # keep the same error plumbing your template expects
+        return render_template("index.html", data={}, error="Invalid credentials.", invalid_empcode_results=(acct is None)), 401
 
     conn = get_conn(); cur = conn.cursor(dictionary=True)
     cur.execute("SELECT * FROM exam_results WHERE emp_code=%s AND mobile=%s LIMIT 1",(emp, mobile))
