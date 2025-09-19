@@ -732,6 +732,16 @@ def staff_auth():
         flash("Please fill email, employee code, and password.", "error")
         return redirect(url_for("home") + "#staff")
 
+    cur.execute(
+        "SELECT * FROM employee_accounts WHERE emp_code=%s AND email=%s LIMIT 1",
+        (emp_code, email)
+    )
+    acct = cur.fetchone()
+    if not acct or not check_password_hash(acct["password_hash"], password):
+        cur.close(); conn.close()
+        # keep the same error plumbing your template expects
+        return render_template("index.html", data={}, error="Invalid credentials.", invalid_empcode_staff=(acct is None)), 401
+
     conn = get_conn(); cur = conn.cursor(dictionary=True)
     cur.execute("SELECT * FROM staff_users ORDER BY id ASC LIMIT 1")
     primary = cur.fetchone()
