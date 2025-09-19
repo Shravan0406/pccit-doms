@@ -356,8 +356,11 @@
         <input type="text" name="nt_title" placeholder="e.g., Application Form for XYZ" required />
         <label>Link (optional)</label>
         <input type="text" name="nt_link" placeholder="https://example.gov.in/file.pdf" />
-        <label>Upload PDF (optional)</label>
-        <input type="file" name="nt_file" accept="application/pdf" />
+        <form action="/upload" method="POST" enctype="multipart/form-data">
+          <label>Upload PDF (optional)</label>
+          <input type="file" name="nt_file" accept="application/pdf" />
+          <button type="submit">Upload</button>
+        </form>
       </div>
       <div class="action-row">
         <button class="btn primary" type="submit">Publish</button>
@@ -377,11 +380,6 @@
         <a class="btn secondary" href="#" onclick="showPage('resultsuploader'); return false;">Upload Results</a>
         <form method="POST" action="/staff/release-results" style="display:inline;">
           <button class="btn outline" type="submit">Release Results</button>
-        </form>
-        <h3>Upload Notification File</h3>
-        <form action="/upload" method="POST" enctype="multipart/form-data">
-          <input type="file" name="file" />
-          <button type="submit">Upload</button>
         </form>
       </div>
     </div>
