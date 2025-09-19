@@ -279,9 +279,6 @@
       {% endif %}
       <input type="password" name="staffPassword" placeholder="Password" required />
       <button type="submit" class="btn primary">Login</button>
-      <div class="action-row">
-        <a class="btn outline" href="/staff/signup" onclick="return true;">Create if you don't have account</a>
-      </div>
       <p class="note">First successful login becomes the primary staff user; other users require approval.</p>
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
