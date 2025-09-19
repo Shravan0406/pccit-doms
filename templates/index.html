@@ -836,6 +836,21 @@
     }
   </script>
 
+  <script>
+  (function(){
+    const toasts = document.querySelectorAll('.flash-wrap .alert');
+    toasts.forEach((el, i) => {
+      const close = () => { el.classList.add('toast-hide'); setTimeout(()=>el.remove(), 250); };
+      setTimeout(close, 3200 + i*250);
+    });
+    setTimeout(() => {
+      const wrap = document.querySelector('.flash-wrap');
+      if (wrap && !wrap.querySelector('.alert')) wrap.remove();
+    }, 4500 + toasts.length*300);
+  })();
+  </script>
+
+
   <!-- Single-page Router -->
   <script>
     const PAGES = {
