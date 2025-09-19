@@ -122,6 +122,9 @@
           <!-- Mobile Number -->
           <label for="mobile">Mobile Number</label>
           <input type="text" id="mobile" name="mobile" required />
+          {% if invalid_mobile_apply %}
+          <div class="field-error">Mobile number doesn't match our records for this Emp Code.</div>
+          {% endif %}
 
           <!-- Exam Purpose -->
           <label for="exampurpose">Exam Purpose</label>
@@ -258,17 +261,24 @@
 
   <!-- APPLICANT LOGIN (hallticket) -->
   <div class="login-container hidden" id="loginSection" aria-hidden="true">
-    <form method="POST" action="/login">
-      <h2>Employee Login</h2>
-      <input type="text" id="empCode" name="empCode" placeholder="Employee Code" required />
-      {% if invalid_empcode_admit %}
-      <div class="field-error">Invalid employee code</div>
-      {% endif %}
-      <input type="text" id="mobile" name="mobile" placeholder="Mobile Number" required />
-      <button type="submit" class="btn primary">Login</button>
-      <p id="errorMsg" class="error">{{ error or '' }}</p>
-    </form>
-  </div>
+  <form method="POST" action="/login">
+    <h2>Employee Login</h2>
+    <input type="text" id="empCode" name="empCode" placeholder="Employee Code" required />
+    {% if invalid_empcode_admit %}
+    <div class="field-error">Invalid employee code</div>
+    {% endif %}
+    <input type="email" id="email" name="email" placeholder="Email ID" required />
+    {% if invalid_email_admit %}
+    <div class="field-error">Invalid email</div>
+    {% endif %}
+    <input type="password" id="password" name="password" placeholder="Password" required />
+    {% if invalid_password_admit %}
+    <div class="field-error">Invalid password</div>
+    {% endif %}
+    <button type="submit" class="btn primary">Login</button>
+    <p id="errorMsg" class="error">{{ error or '' }}</p>
+  </form>
+</div>
 
   <!-- STAFF LOGIN -->
   <div class="login-container hidden" id="staffLoginSection" aria-hidden="true">
@@ -490,7 +500,14 @@
       {% if invalid_empcode_results %}
       <div class="field-error">Invalid employee code</div>
       {% endif %}
-      <input type="text" name="res_mobile" placeholder="Mobile Number" required />
+      <input type="text" name="res_email" placeholder="E-mail" required />
+      {% if invalid_email_results %}
+      <div class="field-error">Invalid email</div>
+      {% endif %}
+      <input type="text" name="res_pwd" placeholder="Password" required />
+      {% if invalid_password_results %}
+      <div class="field-error">Invalid Password</div>
+      {% endif %}
       <button type="submit" class="btn primary">Login</button>
       <p id="resErr" class="error">{{ error if error else '' }}</p>
     </form>
