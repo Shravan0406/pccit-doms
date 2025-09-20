@@ -823,22 +823,44 @@
     })();
 
     // Signature pad
-    const canvas = document.getElementById('signaturePad');
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      let isDrawing = false;
-      canvas.addEventListener('mousedown', e => { isDrawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); });
-      canvas.addEventListener('mousemove', e => { if (!isDrawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); });
-      canvas.addEventListener('mouseup', () => isDrawing = false);
-      canvas.addEventListener('mouseleave', () => isDrawing = false);
-      window.clearSignature = function () { ctx.clearRect(0, 0, canvas.width, canvas.height); };
+  const canvas = document.getElementById('signaturePad');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let hasInk = false; // <-- track whether user actually drew
 
-      const form = document.getElementById('applyForm');
-      form.addEventListener('submit', () => {
-        const chosen = document.getElementById('signatureUpload')?.files?.length > 0;
-        if (!chosen) document.getElementById('signatureData').value = canvas.toDataURL('image/png');
-      });
-    }
+    function startDraw(e) { isDrawing = true; hasInk = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); }
+    function moveDraw(e) { if (!isDrawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); }
+    function stopDraw() { isDrawing = false; }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', moveDraw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseleave', stopDraw);
+
+    window.clearSignature = function () {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasInk = false;
+    };
+
+    const form = document.getElementById('applyForm');
+    form.addEventListener('submit', (e) => {
+      const fileChosen = document.getElementById('signatureUpload')?.files?.length > 0;
+      const hidden = document.getElementById('signatureData');
+
+      // If no file, require actual pen strokes on canvas
+      if (!fileChosen && !hasInk) {
+        e.preventDefault();
+        alert('Please provide your handwritten signature (draw on the canvas or upload an image).');
+        return;
+      }
+
+      // If user drew on canvas (and didn’t upload), serialize to data URL
+      if (!fileChosen && hasInk) {
+        hidden.value = canvas.toDataURL('image/png');
+      }
+    });
+  }
   </script>
 
   <script>
