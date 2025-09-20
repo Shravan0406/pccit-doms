@@ -806,7 +806,7 @@ def staff_auth():
             ), 401
 
         # First staff becomes primary (no email in this branch)
-        cur.execute("SELECT * FROM staff_users WHERE is_primary=1 LIMIT 1")
+        cur.execute("SELECT * FROM staff_users ORDER BY id ASC LIMIT 1")
         primary = cur.fetchone()
         if primary is None:
             cur.execute("""
