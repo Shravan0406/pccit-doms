@@ -789,14 +789,14 @@ def staff_auth():
         )
         acct = cur.fetchone()
         def _password_ok(stored: str, raw: str) -> bool:
-        if not stored:
-            return False
-        try:
+            if not stored:
+                return False
+            try:
         # works for proper Werkzeug hashes like "pbkdf2:sha256:..."
-            return check_password_hash(stored, raw)
-        except Exception:
+                return check_password_hash(stored, raw)
+            except Exception:
         # legacy plain text import fallback
-            return stored == raw
+                return stored == raw
             
         if not acct or not _password_ok(acct.get["password_hash"], password):
             return render_template(
