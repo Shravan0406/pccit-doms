@@ -816,20 +816,19 @@ def staff_auth():
         return redirect(url_for("staff_notifications"))
 
     token = uuid.uuid4().hex
-    cur.execute("SELECT id FROM staff_login_requests WHERE requester_email=%s AND status='pending' LIMIT 1",
-                    (email,))
-        if cur.fetchone():
-            cur.execute("""
-                UPDATE staff_login_requests
-                SET emp_code=%s, password_hash=%s, token=%s, updated_at=NOW()
-                WHERE requester_email=%s AND status='pending'
-            """, (emp_code, pwd_hash, token, email))
-        else:
-            cur.execute("""
-                INSERT INTO staff_login_requests (requester_email, emp_code, password_hash, token, status)
-                VALUES (%s,%s,%s,%s,'pending')
-            """, (email, emp_code, pwd_hash, token))
-        conn.commit();
+    cur.execute("SELECT id FROM staff_login_requests WHERE requester_email=%s AND status='pending' LIMIT 1", (email,))
+    if cur.fetchone():
+        cur.execute("""
+            UPDATE staff_login_requests
+            SET emp_code=%s, password_hash=%s, token=%s, updated_at=NOW()
+            WHERE requester_email=%s AND status='pending'
+        """, (emp_code, pwd_hash, token, email))
+    else:
+        cur.execute("""
+            INSERT INTO staff_login_requests (requester_email, emp_code, password_hash, token, status)
+            VALUES (%s,%s,%s,%s,'pending')
+        """, (email, emp_code, pwd_hash, token))
+    conn.commit();
 
     approve_url = url_for("staff_request_action", token=token, _external=True) + "?action=approve"
     reject_url  = url_for("staff_request_action", token=token, _external=True) + "?action=reject"
