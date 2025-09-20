@@ -773,85 +773,96 @@ def _dev_test_email():
 def staff_auth():
     email = (request.form.get("staffEmail") or "").strip().lower()
     emp_code = (request.form.get("staffEmpCode") or "").strip()
-    password = request.form.get("staffPassword") or ""
+    password = (request.form.get("staffPassword") or "")
+
     if not (email and emp_code and password):
         flash("Please fill email, employee code, and password.", "error")
         return redirect(url_for("home") + "#staff")
 
-    conn = get_conn(); cur = conn.cursor(dictionary=True)
-    cur.execute(
-        "SELECT * FROM employee_accounts WHERE emp_code=%s AND email=%s LIMIT 1",
-        (emp_code, email)
-    )
-    acct = cur.fetchone()
-    if not acct or not check_password_hash(acct["password_hash"], password):
-        cur.close(); conn.close()
-        # keep the same error plumbing your template expects
-        return render_template("index.html", data={}, error="Invalid credentials.", invalid_empcode_staff=(acct is None)), 401
+    conn = get_conn()
+    cur = conn.cursor(dictionary=True)
+    try:
+        # Validate against employee_accounts
+        cur.execute(
+            "SELECT * FROM employee_accounts WHERE emp_code=%s AND email=%s LIMIT 1",
+            (emp_code, email)
+        )
+        acct = cur.fetchone()
+        if not acct or not check_password_hash(acct["password_hash"], password):
+            return render_template(
+                "index.html",
+                data={}, error="Invalid credentials.", invalid_empcode_staff=(acct is None)
+            ), 401
 
-    cur.execute("SELECT * FROM staff_users ORDER BY id ASC LIMIT 1")
-    primary = cur.fetchone()
+        # First staff becomes primary (no email in this branch)
+        cur.execute("SELECT * FROM staff_users ORDER BY id ASC LIMIT 1")
+        primary = cur.fetchone()
+        if primary is None:
+            cur.execute("""
+                INSERT INTO staff_users (email, emp_code, password_hash, is_primary)
+                VALUES (%s, %s, %s, 1)
+            """, (email, emp_code, generate_password_hash(password)))
+            conn.commit()
+            cur.execute("SELECT LAST_INSERT_ID() AS id")
+            new_id = cur.fetchone()["id"]
+            session["staff_user_id"] = new_id
+            session["staff_email"] = email
+            flash("Welcome! You are registered as the primary staff user.", "success")
+            return redirect(url_for("staff_notifications"))
 
-    if primary is None:
+        # If the user already exists as staff and the password matches, just log them in
+        cur.execute("SELECT * FROM staff_users WHERE email=%s LIMIT 1", (email,))
+        existing = cur.fetchone()
+        if existing and check_password_hash(existing["password_hash"], password):
+            session["staff_user_id"] = existing["id"]
+            session["staff_email"] = existing["email"]
+            flash("Logged in successfully.", "success")
+            return redirect(url_for("staff_notifications"))
+
+        # Otherwise create or update a pending approval request, then email the primary
+        token = uuid.uuid4().hex
+        pwd_hash = generate_password_hash(password)
+
         cur.execute("""
-            INSERT INTO staff_users (email, emp_code, password_hash, is_primary)
-            VALUES (%s, %s, %s, 1)
-        """, (email, emp_code, generate_password_hash(password)))
+            SELECT id FROM staff_login_requests
+            WHERE requester_email=%s AND status='pending' LIMIT 1
+        """, (email,))
+        if cur.fetchone():
+            cur.execute("""
+                UPDATE staff_login_requests
+                SET emp_code=%s, password_hash=%s, token=%s, updated_at=NOW()
+                WHERE requester_email=%s AND status='pending'
+            """, (emp_code, pwd_hash, token, email))
+        else:
+            cur.execute("""
+                INSERT INTO staff_login_requests (requester_email, emp_code, password_hash, token, status)
+                VALUES (%s,%s,%s,%s,'pending')
+            """, (email, emp_code, pwd_hash, token))
         conn.commit()
-        cur.execute("SELECT LAST_INSERT_ID() AS id")
-        new_id = cur.fetchone()["id"]
-        cur.close(); conn.close()
-        session["staff_user_id"] = new_id
-        session["staff_email"] = email
-        flash("Welcome! You are registered as the primary staff user.", "success")
-        return redirect(url_for("staff_notifications"))
 
-    cur.execute("SELECT * FROM staff_users WHERE email=%s LIMIT 1", (email,))
-    existing = cur.fetchone()
-    if existing and check_password_hash(existing["password_hash"], password):
-        cur.close(); conn.close()
-        session["staff_user_id"] = existing["id"]
-        session["staff_email"] = existing["email"]
-        flash("Logged in successfully.", "success")
-        return redirect(url_for("staff_notifications"))
+        approve_url = url_for("staff_request_action", token=token, _external=True) + "?action=approve"
+        reject_url  = url_for("staff_request_action", token=token, _external=True) + "?action=reject"
+        html = f"""
+            <p>Dear Primary Staff User,</p>
+            <p><b>{email}</b> is requesting access to the staff portal.</p>
+            <p>Approve or reject:</p>
+            <p><a href="{approve_url}">Approve</a> | <a href="{reject_url}">Reject</a></p>
+            <p>Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        """
 
-    token = uuid.uuid4().hex
-    cur.execute("SELECT id FROM staff_login_requests WHERE requester_email=%s AND status='pending' LIMIT 1", (email,))
-    if cur.fetchone():
-        cur.execute("""
-            UPDATE staff_login_requests
-            SET emp_code=%s, password_hash=%s, token=%s, updated_at=NOW()
-            WHERE requester_email=%s AND status='pending'
-        """, (emp_code, pwd_hash, token, email))
-    else:
-        cur.execute("""
-            INSERT INTO staff_login_requests (requester_email, emp_code, password_hash, token, status)
-            VALUES (%s,%s,%s,%s,'pending')
-        """, (email, emp_code, pwd_hash, token))
-    conn.commit();
-
-    approve_url = url_for("staff_request_action", token=token, _external=True) + "?action=approve"
-    reject_url  = url_for("staff_request_action", token=token, _external=True) + "?action=reject"
-    html = f"""
-        <p>Dear Primary Staff User,</p>
-        <p><b>{email}</b> is requesting access to the staff portal.</p>
-        <p>Approve or reject:</p>
-        <p><a href="{approve_url}">Approve</a> | <a href="{reject_url}">Reject</a></p>
-        <p>Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-    """
-    ok = send_email(primary["email"], "Staff login approval request", html)
+        ok = send_email(primary["email"], "Staff login approval request", html)
         if ok:
             flash("Request sent to primary for approval.", "info")
         else:
             flash("Could not send email to primary. Check SMTP settings & logs.", "error")
+        return redirect(url_for("home") + "#staff")
 
-    return redirect(url_for("home") + "#staff")
+    finally:
+        try: cur.close()
+        except Exception: pass
+        try: conn.close()
+        except Exception: pass
 
-finally:
-    try: cur.close()
-    except: pass
-    try: conn.close()
-    except: pass
     
 @app.route("/staff/requests/<token>")
 def staff_request_action(token):
