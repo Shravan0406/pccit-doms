@@ -240,10 +240,10 @@ def init_db():
             exam_center VARCHAR(120),
             sign_place VARCHAR(120),
             sign_date DATE,
-            signature_blob=COALESCE(VALUES(signature_blob), signature_blob),
-            signature_mime=COALESCE(VALUES(signature_mime), signature_mime),
-            photo_blob=COALESCE(VALUES(photo_blob), photo_blob),
-            photo_mime=COALESCE(VALUES(photo_mime), photo_mime),
+            signature_blob LONGBLOB,
+            signature_mime VARCHAR(50),
+            photo_blob LONGBLOB,
+            photo_mime VARCHAR(50),
             qr_blob LONGBLOB,
             qr_mime VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -554,8 +554,9 @@ def submit():
             cit_charge=VALUES(cit_charge), dob=VALUES(dob), eligibility_year=VALUES(eligibility_year),
             roll_1991=VALUES(roll_1991), posting_place=VALUES(posting_place), subjects=VALUES(subjects),
             lang_accounts=VALUES(lang_accounts), exam_center=VALUES(exam_center), sign_place=VALUES(sign_place),
-            sign_date=VALUES(sign_date), signature_blob=VALUES(signature_blob), signature_mime=VALUES(signature_mime),
-            photo_blob=VALUES(photo_blob), photo_mime=VALUES(photo_mime)
+            sign_date=VALUES(sign_date), signature_blob=COALESCE(VALUES(signature_blob), signature_blob),
+            signature_mime=COALESCE(VALUES(signature_mime), signature_mime), photo_blob=COALESCE(VALUES(photo_blob), photo_blob),
+            photo_mime=COALESCE(VALUES(photo_mime), photo_mime)
     """, (
         name, designation, recruitment_type, emp_code, mobile, exam_purpose, doj, category_csv, cit_charge, dob,
         eligibility_year, roll_1991, posting_place, subjects, lang_accounts, exam_center, sign_place, sign_date,
