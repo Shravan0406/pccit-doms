@@ -792,14 +792,11 @@ def staff_auth():
     cur.execute("SELECT * FROM staff_users ORDER BY id ASC LIMIT 1")
     primary = cur.fetchone()
 
-    from werkzeug.security import generate_password_hash
-        pass_hash = generate_password_hash(password)
-
-    if not primary:
+    if primary is None:
         cur.execute("""
             INSERT INTO staff_users (email, emp_code, password_hash, is_primary)
             VALUES (%s, %s, %s, 1)
-        """, (email, emp_code, pass_hash))
+        """, (email, emp_code, generate_password_hash(password)))
         conn.commit()
         cur.execute("SELECT LAST_INSERT_ID() AS id")
         new_id = cur.fetchone()["id"]
