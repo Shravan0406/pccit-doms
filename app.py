@@ -845,19 +845,14 @@ def staff_auth():
         else:
             flash("Could not send email to primary. Check SMTP settings & logs.", "error")
 
-        return redirect(url_for("home"))
+    return redirect(url_for("home") + "#staff")
 
-    finally:
-        try: cur.close()
-        except: pass
-        try: conn.close()
-        except: pass
-    #try: send_email(primary["email"], "Staff Login Approval Request", html)
-    #except Exception as e: print("Email error:", e)
-
-    #flash("Login request sent to the primary staff user for approval.", "success")
-    #return redirect(url_for("home") + "#staff")
-
+finally:
+    try: cur.close()
+    except: pass
+    try: conn.close()
+    except: pass
+    
 @app.route("/staff/requests/<token>")
 def staff_request_action(token):
     action = (request.args.get("action") or "").lower()
