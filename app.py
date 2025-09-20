@@ -788,14 +788,24 @@ def staff_auth():
             (emp_code, email)
         )
         acct = cur.fetchone()
-        if not acct or not check_password_hash(acct["password_hash"], password):
+        def _password_ok(stored: str, raw: str) -> bool:
+        if not stored:
+            return False
+        try:
+        # works for proper Werkzeug hashes like "pbkdf2:sha256:..."
+            return check_password_hash(stored, raw)
+        except Exception:
+        # legacy plain text import fallback
+            return stored == raw
+            
+        if not acct or not _password_ok(acct.get["password_hash"], password):
             return render_template(
                 "index.html",
                 data={}, error="Invalid credentials.", invalid_empcode_staff=(acct is None)
             ), 401
 
         # First staff becomes primary (no email in this branch)
-        cur.execute("SELECT * FROM staff_users ORDER BY id ASC LIMIT 1")
+        cur.execute("SELECT * FROM staff_users WHERE is_primary=1 LIMIT 1")
         primary = cur.fetchone()
         if primary is None:
             cur.execute("""
@@ -1092,7 +1102,7 @@ def results_auth():
         (emp_code, email)
     )
     acct = cur.fetchone()
-    if not acct or not check_password_hash(acct["password_hash"], password):
+    if not acct or not _password_ok(acct.get["password_hash"], password):
         cur.close(); conn.close()
         # keep the same error plumbing your template expects
         return render_template("index.html", data={}, error="Invalid credentials.", invalid_empcode_results=(acct is None)), 401
