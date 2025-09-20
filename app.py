@@ -1,5 +1,6 @@
-import os, re, base64, smtplib, uuid
+import os, re, base64, smtplib, uuid, logging
 from email.mime.text import MIMEText
+from email.utils import parseaddr
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -8,6 +9,7 @@ from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash
 import mysql.connector as mysql
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 from io import BytesIO
 from datetime import datetime, date
@@ -33,9 +35,12 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "975e36001@smtp-brevo.com")
 SMTP_PASS = os.getenv("SMTP_PASS", "JFp1Yq2jUASVOw5g")
 SMTP_SENDER = os.getenv("SMTP_SENDER", SMTP_USER or "ssbandi04@gmail.com")
-SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://pccit-doms.vercel.app/#staff")
+SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://pccit-doms.vercel.app/")
+SMTP_SECURITY = (os.getenv("SMTP_SECURITY", "starttls") or "starttls").lower()
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 app.secret_key = os.getenv("FLASK_SECRET", "dev-secret-change-me")
 
@@ -160,22 +165,49 @@ def as_ymd(d):
     return s
 
 # ---------------------- Email Helper ----------------------
-def send_email(to_email: str, subject: str, html_body: str) -> None:
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASS):
-        print("\n---- EMAIL (SIMULATED) ----")
-        print("TO:", to_email)
-        print("SUBJECT:", subject)
-        print("BODY (HTML):\n", html_body)
-        print("---------------------------\n")
-        return
+app.logger.setLevel(logging.INFO)
+def send_email(to_email: str, subject: str, html_body: str) -> bool:
+    app.logger.setLevel(logging.INFO)
+    log = app.logger
+    log.info("send_email: to=%s subj=%s host=%s port=%s sec=%s",
+             to_email, subject, SMTP_HOST, SMTP_PORT, SMTP_SECURITY)
+
+    missing = [k for k, v in {
+        "SMTP_HOST": SMTP_HOST, "SMTP_PORT": SMTP_PORT, "SMTP_USER": SMTP_USER,
+        "SMTP_PASS": SMTP_PASS, "SMTP_SENDER": SMTP_SENDER
+    }.items() if not v]
+    if missing:
+        log.error("SMTP config incomplete, missing: %s", ", ".join(missing))
+        return False
+
     msg = MIMEText(html_body, "html")
     msg["Subject"] = subject
     msg["From"] = SMTP_SENDER
     msg["To"] = to_email
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
-        s.starttls()
-        s.login(SMTP_USER, SMTP_PASS)
-        s.sendmail(SMTP_SENDER, [to_email], msg.as_string())
+    envelope_from = parseaddr(SMTP_SENDER)[1] or SMTP_USER
+
+    try:
+        if SMTP_SECURITY == "ssl":
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=20)
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20)
+            server.set_debuglevel(1)  # log SMTP conversation
+            if SMTP_SECURITY == "starttls":
+                server.starttls()
+
+        server.login(SMTP_USER, SMTP_PASS)
+        resp = server.sendmail(envelope_from, [to_email], msg.as_string())
+        server.quit()
+
+        if resp:
+            log.error("send_email: provider returned partial failures: %r", resp)
+            return False
+
+        log.info("send_email: SUCCESS to=%s", to_email)
+        return True
+    except Exception as e:
+        log.exception("send_email failed: %s", e)
+        return False
 
 # ---------------------- Auth Guard ----------------------
 def login_required(fn):
@@ -729,6 +761,14 @@ def login():
 
 
 # ---------------------- Staff Login & Approval (unchanged) ----------------------
+@app.route("/_dev/test_email")
+def _dev_test_email():
+    to = request.args.get("to") or os.getenv("SMTP_TEST_TO")
+    if not to:
+        return "Provide ?to=someone@example.com or set SMTP_TEST_TO env", 400
+    ok = send_email(to, "SMTP test from Dept Exams", "<p>Hello from Flask ✅</p>")
+    return ("Email sent ✅" if ok else "Email failed ❌"), (200 if ok else 500)
+
 @app.route("/staff-auth", methods=["POST"])
 def staff_auth():
     email = (request.form.get("staffEmail") or "").strip().lower()
@@ -752,11 +792,14 @@ def staff_auth():
     cur.execute("SELECT * FROM staff_users ORDER BY id ASC LIMIT 1")
     primary = cur.fetchone()
 
-    if primary is None:
+    from werkzeug.security import generate_password_hash
+        pass_hash = generate_password_hash(password)
+
+    if not primary:
         cur.execute("""
             INSERT INTO staff_users (email, emp_code, password_hash, is_primary)
             VALUES (%s, %s, %s, 1)
-        """, (email, emp_code, generate_password_hash(password)))
+        """, (email, emp_code, pass_hash))
         conn.commit()
         cur.execute("SELECT LAST_INSERT_ID() AS id")
         new_id = cur.fetchone()["id"]
@@ -776,26 +819,48 @@ def staff_auth():
         return redirect(url_for("staff_notifications"))
 
     token = uuid.uuid4().hex
-    cur.execute("""
-        INSERT INTO staff_login_requests (requester_email, emp_code, password_hash, token, status)
-        VALUES (%s,%s,%s,%s,'pending')
-    """, (email, emp_code, generate_password_hash(password), token))
-    conn.commit(); cur.close(); conn.close()
+    cur.execute("SELECT id FROM staff_login_requests WHERE requester_email=%s AND status='pending' LIMIT 1",
+                    (email,))
+        if cur.fetchone():
+            cur.execute("""
+                UPDATE staff_login_requests
+                SET emp_code=%s, password_hash=%s, token=%s, updated_at=NOW()
+                WHERE requester_email=%s AND status='pending'
+            """, (emp_code, pwd_hash, token, email))
+        else:
+            cur.execute("""
+                INSERT INTO staff_login_requests (requester_email, emp_code, password_hash, token, status)
+                VALUES (%s,%s,%s,%s,'pending')
+            """, (email, emp_code, pwd_hash, token))
+        conn.commit();
 
-    approve_link = f"{SITE_BASE_URL}/staff/requests/{token}?action=approve"
-    reject_link  = f"{SITE_BASE_URL}/staff/requests/{token}?action=reject"
+    approve_url = url_for("staff_request_action", token=token, _external=True) + "?action=approve"
+    reject_url  = url_for("staff_request_action", token=token, _external=True) + "?action=reject"
     html = f"""
         <p>Dear Primary Staff User,</p>
         <p><b>{email}</b> is requesting access to the staff portal.</p>
         <p>Approve or reject:</p>
-        <p><a href="{approve_link}">Approve</a> | <a href="{reject_link}">Reject</a></p>
+        <p><a href="{approve_url}">Approve</a> | <a href="{reject_url}">Reject</a></p>
         <p>Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
     """
-    try: send_email(primary["email"], "Staff Login Approval Request", html)
-    except Exception as e: print("Email error:", e)
+    ok = send_email(primary["email"], "Staff login approval request", html)
+        if ok:
+            flash("Request sent to primary for approval.", "info")
+        else:
+            flash("Could not send email to primary. Check SMTP settings & logs.", "error")
 
-    flash("Login request sent to the primary staff user for approval.", "success")
-    return redirect(url_for("home") + "#staff")
+        return redirect(url_for("home"))
+
+    finally:
+        try: cur.close()
+        except: pass
+        try: conn.close()
+        except: pass
+    #try: send_email(primary["email"], "Staff Login Approval Request", html)
+    #except Exception as e: print("Email error:", e)
+
+    #flash("Login request sent to the primary staff user for approval.", "success")
+    #return redirect(url_for("home") + "#staff")
 
 @app.route("/staff/requests/<token>")
 def staff_request_action(token):
@@ -815,7 +880,7 @@ def staff_request_action(token):
         exists = cur.fetchone()
         if exists:
             cur.execute("UPDATE staff_users SET emp_code=%s WHERE id=%s",
-                        (req["requester_emp_code"], exists["id"]))
+                        (req["emp_code"], exists["id"]))
         else:
             cur.execute("""
                 INSERT INTO staff_users (email, emp_code, password_hash, is_primary)
