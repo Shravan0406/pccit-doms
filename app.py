@@ -209,17 +209,6 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
         log.exception("send_email failed: %s", e)
         return False
 
-def password_ok(stored: str, raw: str) -> bool:
-    """Accept both proper Werkzeug hashes and legacy plain text values."""
-    if not stored:
-        return False
-    try:
-        # works when stored looks like "pbkdf2:sha256:...$salt$hash"
-        return check_password_hash(stored, raw)
-    except Exception:
-        # legacy fallback: stored is plain text
-        return stored == raw
-
 # ---------------------- Auth Guard ----------------------
 def login_required(fn):
     @wraps(fn)
@@ -710,7 +699,7 @@ def login():
         (emp_code, email)
     )
     acct = cur.fetchone()
-    if not acct or not password_ok(acct.get["password_hash"], password):
+    if not acct or not check_password_hash(acct["password_hash"], password):
         cur.close(); conn.close()
         # keep the same error plumbing your template expects
         return render_template("index.html", data={}, error="Invalid credentials.", invalid_empcode_admit=(acct is None)), 401
@@ -799,14 +788,14 @@ def staff_auth():
             (emp_code, email)
         )
         acct = cur.fetchone()
-        if not acct or not _password_ok(acct.get["password_hash"], password):
+        if not acct or not check_password_hash(acct["password_hash"], password):
             return render_template(
                 "index.html",
                 data={}, error="Invalid credentials.", invalid_empcode_staff=(acct is None)
             ), 401
 
         # First staff becomes primary (no email in this branch)
-        cur.execute("SELECT * FROM staff_users ORDER BY id ASC LIMIT 1")
+        cur.execute("SELECT * FROM staff_users WHERE is_primary=1 LIMIT 1")
         primary = cur.fetchone()
         if primary is None:
             cur.execute("""
@@ -824,7 +813,7 @@ def staff_auth():
         # If the user already exists as staff and the password matches, just log them in
         cur.execute("SELECT * FROM staff_users WHERE email=%s LIMIT 1", (email,))
         existing = cur.fetchone()
-        if existing and password_ok(existing.get["password_hash"], password):
+        if existing and check_password_hash(existing["password_hash"], password):
             session["staff_user_id"] = existing["id"]
             session["staff_email"] = existing["email"]
             flash("Logged in successfully.", "success")
@@ -1103,7 +1092,7 @@ def results_auth():
         (emp_code, email)
     )
     acct = cur.fetchone()
-    if not acct or not _password_ok(acct.get["password_hash"], password):
+    if not acct or not check_password_hash(acct["password_hash"], password):
         cur.close(); conn.close()
         # keep the same error plumbing your template expects
         return render_template("index.html", data={}, error="Invalid credentials.", invalid_empcode_results=(acct is None)), 401
