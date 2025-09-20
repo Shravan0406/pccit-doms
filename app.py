@@ -209,6 +209,17 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
         log.exception("send_email failed: %s", e)
         return False
 
+def password_ok(stored: str, raw: str) -> bool:
+    """Accept both proper Werkzeug hashes and legacy plain text values."""
+    if not stored:
+        return False
+    try:
+        # works when stored looks like "pbkdf2:sha256:...$salt$hash"
+        return check_password_hash(stored, raw)
+    except Exception:
+        # legacy fallback: stored is plain text
+        return stored == raw
+
 # ---------------------- Auth Guard ----------------------
 def login_required(fn):
     @wraps(fn)
@@ -699,7 +710,7 @@ def login():
         (emp_code, email)
     )
     acct = cur.fetchone()
-    if not acct or not check_password_hash(acct["password_hash"], password):
+    if not acct or not password_ok(acct.get["password_hash"], password):
         cur.close(); conn.close()
         # keep the same error plumbing your template expects
         return render_template("index.html", data={}, error="Invalid credentials.", invalid_empcode_admit=(acct is None)), 401
@@ -788,16 +799,6 @@ def staff_auth():
             (emp_code, email)
         )
         acct = cur.fetchone()
-        def _password_ok(stored: str, raw: str) -> bool:
-            if not stored:
-                return False
-            try:
-        # works for proper Werkzeug hashes like "pbkdf2:sha256:..."
-                return check_password_hash(stored, raw)
-            except Exception:
-        # legacy plain text import fallback
-                return stored == raw
-            
         if not acct or not _password_ok(acct.get["password_hash"], password):
             return render_template(
                 "index.html",
@@ -823,7 +824,7 @@ def staff_auth():
         # If the user already exists as staff and the password matches, just log them in
         cur.execute("SELECT * FROM staff_users WHERE email=%s LIMIT 1", (email,))
         existing = cur.fetchone()
-        if existing and check_password_hash(existing["password_hash"], password):
+        if existing and password_ok(existing.get["password_hash"], password):
             session["staff_user_id"] = existing["id"]
             session["staff_email"] = existing["email"]
             flash("Logged in successfully.", "success")
