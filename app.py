@@ -644,8 +644,10 @@ def submit():
         "signature": sig_b64,
         "qrCode": f"data:{qr_mime};base64,{qr_b64}" if qr_b64 else "",
     }
-    return render_template("index.html", data=data, error=None,
-                           success_message="Application Submitted Successfully")
+    flash("Application form successfully submitted", "success")
+    return redirect("/")
+    #return render_template("index.html", data=data, error=None,
+                           #success_message="Application Submitted Successfully")
 
 # ---------------------- Existing Applicant Login (Admit Card) ----------------------
 @app.route("/login", methods=["POST"])
