@@ -240,10 +240,10 @@ def init_db():
             exam_center VARCHAR(120),
             sign_place VARCHAR(120),
             sign_date DATE,
-            signature_blob LONGBLOB,
-            signature_mime VARCHAR(50),
-            photo_blob LONGBLOB,
-            photo_mime VARCHAR(50),
+            signature_blob=COALESCE(VALUES(signature_blob), signature_blob),
+            signature_mime=COALESCE(VALUES(signature_mime), signature_mime),
+            photo_blob=COALESCE(VALUES(photo_blob), photo_blob),
+            photo_mime=COALESCE(VALUES(photo_mime), photo_mime),
             qr_blob LONGBLOB,
             qr_mime VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -525,6 +525,9 @@ def submit():
 
     if not all([name, designation, recruitment_type, emp_code, mobile, doj]) or not category_csv:
         return render_template("index.html", data={}, error="Missing required fields in application form."), 400
+
+    if not sig_blob:
+        return render_template("index.html", data={}, error="Please provide a handwritten signature (draw or upload) before submitting."), 400
 
     conn = get_conn(); cur = conn.cursor(dictionary=True)
     cur.execute(
