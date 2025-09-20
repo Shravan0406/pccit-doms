@@ -165,7 +165,6 @@ def as_ymd(d):
     return s
 
 # ---------------------- Email Helper ----------------------
-app.logger.setLevel(logging.INFO)
 def send_email(to_email: str, subject: str, html_body: str) -> bool:
     app.logger.setLevel(logging.INFO)
     log = app.logger
@@ -208,6 +207,15 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
     except Exception as e:
         log.exception("send_email failed: %s", e)
         return False
+
+LOG_LEVEL = (os.getenv("LOG_LEVEL", "INFO") or "INFO").upper()
+app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+
+def _mask_email(e: str) -> str:
+    if not e or "@" not in e: 
+        return e
+    name, dom = e.split("@", 1)
+    return (name[:2] + "***@" + dom)
 
 # ---------------------- Auth Guard ----------------------
 def login_required(fn):
@@ -771,6 +779,128 @@ def _dev_test_email():
 
 @app.route("/staff-auth", methods=["POST"])
 def staff_auth():
+    email    = (request.form.get("staffEmail")    or "").strip().lower()
+    emp_code = (request.form.get("staffEmpCode")  or "").strip()
+    password = (request.form.get("staffPassword") or "")
+
+    app.logger.info("STAFF_AUTH:start email=%s emp=%s", _mask_email(email), emp_code)
+
+    if not (email and emp_code and password):
+        app.logger.info("STAFF_AUTH:missing_fields email=%s", _mask_email(email))
+        flash("Please fill email, employee code, and password.", "error")
+        return redirect(url_for("home") + "#staff")
+
+    conn = get_conn()
+    cur = conn.cursor(dictionary=True)
+    try:
+        # 1) Validate against employee_accounts
+        cur.execute("SELECT * FROM employee_accounts WHERE emp_code=%s AND email=%s LIMIT 1",
+                    (emp_code, email))
+        acct = cur.fetchone()
+        if not acct or not check_password_hash(acct["password_hash"], password):
+            app.logger.info("STAFF_AUTH:invalid_credentials email=%s", _mask_email(email))
+            return render_template(
+                "index.html",
+                data={}, error="Invalid credentials.",
+                invalid_empcode_staff=(acct is None)
+            ), 401
+
+        # 2) Find primary
+        cur.execute("SELECT * FROM staff_users WHERE is_primary=1 LIMIT 1")
+        primary = cur.fetchone()
+
+        if primary is None:
+            app.logger.info("STAFF_AUTH:promote_to_primary email=%s emp=%s", _mask_email(email), emp_code)
+            cur.execute("""
+                INSERT INTO staff_users (email, emp_code, password_hash, is_primary)
+                VALUES (%s,%s,%s,1)
+            """, (email, emp_code, generate_password_hash(password)))
+            conn.commit()
+            cur.execute("SELECT LAST_INSERT_ID() AS id")
+            session["staff_user_id"] = cur.fetchone()["id"]
+            session["staff_email"] = email
+            flash("You are registered as the primary staff user.", "success")
+            return redirect(url_for("staff_notifications"))
+
+        # 3) Primary logging in
+        if email == primary["email"]:
+            app.logger.info("STAFF_AUTH:primary_login email=%s", _mask_email(email))
+            cur.execute("SELECT * FROM staff_users WHERE email=%s LIMIT 1", (email,))
+            su = cur.fetchone()
+            if su and check_password_hash(su["password_hash"], password):
+                session["staff_user_id"] = su["id"]
+                session["staff_email"]   = su["email"]
+                flash("Logged in successfully.", "success")
+                return redirect(url_for("staff_notifications"))
+            if su:
+                cur.execute("UPDATE staff_users SET password_hash=%s WHERE id=%s",
+                            (generate_password_hash(password), su["id"]))
+                conn.commit()
+                session["staff_user_id"] = su["id"]
+                session["staff_email"]   = su["email"]
+                flash("Logged in successfully.", "success")
+                return redirect(url_for("staff_notifications"))
+
+        # 4) Already-approved non-primary
+        cur.execute("SELECT * FROM staff_users WHERE email=%s LIMIT 1", (email,))
+        existing = cur.fetchone()
+        if existing and not existing["is_primary"]:
+            app.logger.info("STAFF_AUTH:approved_staff_login email=%s", _mask_email(email))
+            if check_password_hash(existing["password_hash"], password):
+                session["staff_user_id"] = existing["id"]
+                session["staff_email"]   = existing["email"]
+                flash("Logged in successfully.", "success")
+                return redirect(url_for("staff_notifications"))
+            app.logger.info("STAFF_AUTH:approved_staff_bad_password email=%s", _mask_email(email))
+            return render_template("index.html", data={}, error="Invalid credentials.", show_staff_login=True), 401
+
+        # 5) Not yet approved → create/update pending & email primary
+        token = uuid.uuid4().hex
+        pwd_hash = generate_password_hash(password)
+
+        cur.execute("""
+            SELECT id FROM staff_login_requests
+            WHERE requester_email=%s AND status='pending' LIMIT 1
+        """, (email,))
+        if cur.fetchone():
+            app.logger.info("STAFF_AUTH:update_pending email=%s", _mask_email(email))
+            cur.execute("""
+                UPDATE staff_login_requests
+                SET emp_code=%s, password_hash=%s, token=%s, updated_at=NOW()
+                WHERE requester_email=%s AND status='pending'
+            """, (emp_code, pwd_hash, token, email))
+        else:
+            app.logger.info("STAFF_AUTH:create_pending email=%s", _mask_email(email))
+            cur.execute("""
+                INSERT INTO staff_login_requests (requester_email, emp_code, password_hash, token, status)
+                VALUES (%s,%s,%s,%s,'pending')
+            """, (email, emp_code, pwd_hash, token))
+        conn.commit()
+
+        approve_url = url_for("staff_request_action", token=token, _external=True) + "?action=approve"
+        reject_url  = url_for("staff_request_action", token=token, _external=True) + "?action=reject"
+        html = f"""
+            <p>Dear Primary Staff User,</p>
+            <p><b>{email}</b> (Emp Code {emp_code}) is requesting access to the staff portal.</p>
+            <p><a href="{approve_url}">Approve</a> | <a href="{reject_url}">Reject</a></p>
+            <p>Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        """
+
+        app.logger.info("STAFF_AUTH:send_email to_primary=%s token=%s", primary["email"], token)
+        ok = send_email(primary["email"], "Staff login approval request", html)
+        app.logger.info("STAFF_AUTH:send_email_result ok=%s", ok)
+
+        flash(("Request sent to primary for approval." if ok else
+               "Could not send email to primary. Check SMTP settings & logs."),
+              ("info" if ok else "error"))
+        return redirect(url_for("home") + "#staff")
+
+    finally:
+        try: cur.close()
+        except Exception: pass
+        try: conn.close()
+        except Exception: pass
+'''def staff_auth():
     email = (request.form.get("staffEmail") or "").strip().lower()
     emp_code = (request.form.get("staffEmpCode") or "").strip()
     password = (request.form.get("staffPassword") or "")
@@ -861,7 +991,7 @@ def staff_auth():
         try: cur.close()
         except Exception: pass
         try: conn.close()
-        except Exception: pass
+        except Exception: pass'''
 
     
 @app.route("/staff/requests/<token>")
